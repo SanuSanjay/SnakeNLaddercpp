@@ -7,7 +7,6 @@
 
 int main()
 {
-    std::cout << "Hello World!\n";
     int Board[100];
 
     for (int i = 0; i < 100; i++)
@@ -16,6 +15,8 @@ int main()
     }
 
     int No_Of_Players_Count;
+
+    std::cout << "SNAKES AND LADDERS \n";
     std::cout << "Enter the number of players: ";
     std::cin >> No_Of_Players_Count;
 
