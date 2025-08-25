@@ -1,241 +1,278 @@
-#include<iostream>
-#include<iomanip>
-#include<string>
-#include<vector>
-#include<ctime>
-#include<algorithm>
-
+#include <iostream>
+#include <iomanip>
+#include <string>
+#include <vector>
+#include<chrono>
+#include<thread>
+#include <algorithm>
+#include<stdexcept>
+#include<limits>
 
 // Need access to the board globally
-int Board[100];
-
+int board[100];
 
 class GameDetails
 {
 private:
 	// Locations of snakes and ladders
-	std::vector<int> LadderBase = { 3, 8, 28, 37, 58, 75, 80 };
-	std::vector<int> LadderEnd = { 21, 30, 84, 67, 77, 86, 96 };
+	std::vector<int> ladder_base_ = { 3, 8, 28, 37, 58, 75, 80 };
+	std::vector<int> ladder_end_ = { 21, 30, 84, 67, 77, 86, 96 };
 
-	std::vector<int> SnakeHead = { 17, 52, 57, 79, 88, 95 };
-	std::vector<int> SnakeTail = { 13, 29, 40, 25, 18, 51 };
+	std::vector<int> snake_head_ = { 17, 52, 57, 79, 88, 95 };
+	std::vector<int> snake_tail_ = { 13, 29, 40, 25, 18, 51 };
 
 	// Board colors
-	const std::string RESET = "\033[0m";
-	const std::string RED = "\033[91m";
-	const std::string GREEN = "\033[92m";
-	const std::string YELLOW = "\033[93m";
+	const std::string RESET_ = "\033[0m";
+	const std::string RED_ = "\033[91m";
+	const std::string GREEN_ = "\033[92m";
+	const std::string YELLOW_ = "\033[93m";
 
 	// Colors for players
-	const std::string MAGENTA = "\033[35m";
-	const std::string CYAN = "\033[36m";
-	const std::string ORANGE = "\033[38;2;255;165;0m";
-	const std::string PINK = "\033[38;2;255;192;203m";
+	const std::string MAGENTA_ = "\033[35m";
+	const std::string CYAN_ = "\033[36m";
+	const std::string ORANGE_ = "\033[38;2;255;165;0m";
+	const std::string PINK_ = "\033[38;2;255;192;203m";
 
-	std::vector<std::string> Colors = { ORANGE, MAGENTA, CYAN, PINK };
+	std::vector<std::string> colors_ = { ORANGE_, MAGENTA_, CYAN_, PINK_ };
 
 public:
-	void PrintPlayers(const std::vector<std::string>& PlayersNames);
-	void PrintBoard(int Board[], int, std::vector<int>);
-	bool ProcessPlayerTurn(int No_Of_Players, std::vector<int>& Player_Positions, std::vector<int>& Player_Turns, const std::vector<std::string>& PlayersNames);
+	void print_players(const std::vector<std::string>& player_names);
+	void print_board(int board[], int num_players, std::vector<int>& player_positions);
+
+	bool process_player_turn(int num_players, std::vector<int>& player_positions,
+		std::vector<int>& player_turns, std::vector<std::string>& player_names);
+
+	bool check_for_cheats(char is_cheat, std::vector<std::string>& player_names,
+		std::vector<int>& player_positions, std::vector<int>& player_turns, int current_player);
+
+	void is_number_of_players_valid(int* num_players);
 };
 
 
-
-void GameDetails::PrintPlayers(const std::vector<std::string>& PlayersNames)
+void GameDetails::is_number_of_players_valid(int* num_players)
 {
-	int PlayerNumber = 1;
-	for (const auto& name : PlayersNames)
+	std::cin.exceptions(std::ios::failbit);
+retry:
+	try
 	{
-		std::cout << Colors[PlayerNumber - 1] << "Player " << PlayerNumber << " " << name << RESET << '\n';
-		++PlayerNumber;
+		std::cin >> *num_players;
+		if (*num_players >= 1 && *num_players <= 4)
+			return;
+		else
+			throw std::ios_base::failure("Invalid input");
 	}
-	std::cout << '\n';
-	std::cout << '\n';
-
+	catch (const std::ios_base::failure& e)
+	{
+		std::cerr << "Invalid input. Please enter a number between (1 - 4).\n";
+		//std::cout << e.what() << '\n'; use this if you want to see the error message
+		std::cin.clear();
+		std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+		goto retry;
+	}
 }
 
-void GameDetails::PrintBoard(int Board[], int No_Of_Players, std::vector<int> Player_Positions)
+void GameDetails::print_players(const std::vector<std::string>& player_names)
 {
-	// Size of the board is always 100, so we dont need to pass size as a separate parameter
+	int player_number = 1;
+	for (const auto& name : player_names)
+	{
+		std::cout << colors_[player_number - 1] << "Player " << player_number
+			<< " " << name << RESET_ << '\n';
+		++player_number;
+	}
+	std::cout << "\n\n";
+}
+
+void GameDetails::print_board(int board[], int num_players, std::vector<int>& player_positions)
+{
 	for (int i = 0; i < 100; i++)
 	{
-		bool isPrinted = false;
+		bool is_printed = false;
 
-		for (int p = 0; p < No_Of_Players; p++)
+		for (int p = 0; p < num_players; p++)
 		{
-			//P is used to iterate thru the players and i is the current board location to print in
-			if (Player_Positions[p] == Board[i])
+			if (player_positions[p] == board[i])
 			{
-				std::cout << Colors[p] << std::setw(4) << "P" << (p + 1) << RESET << " ";;
-				isPrinted = true;
+				std::cout << colors_[p] << std::setw(4) << "P" << (p + 1) << RESET_ << " ";
+				is_printed = true;
 				break;
 			}
 		}
 
-		if (!isPrinted) 
+		if (!is_printed)
 		{
-			if (std::find(SnakeHead.begin(), SnakeHead.end(), Board[i]) != SnakeHead.end())
-			{
-				std::cout << RED << std::setw(3) << "SH" << RESET << " ";
-			}
-
-			else if (std::find(SnakeTail.begin(), SnakeTail.end(), Board[i]) != SnakeTail.end())
-			{
-				std::cout << RED << std::setw(3) << "ST" << RESET << " ";
-			}
-
-			else if (std::find(LadderBase.begin(), LadderBase.end(), Board[i]) != LadderBase.end())
-			{
-				std::cout << GREEN << std::setw(3) << "LS" << RESET << " ";
-			}
-
-			else if (std::find(LadderEnd.begin(), LadderEnd.end(), Board[i]) != LadderEnd.end())
-			{
-				std::cout << GREEN << std::setw(3) << "LE" << RESET << " ";
-			}
-
+			if (std::find(snake_head_.begin(), snake_head_.end(), board[i]) != snake_head_.end())
+				std::cout << RED_ << std::setw(3) << "SH" << RESET_ << " ";
+			else if (std::find(snake_tail_.begin(), snake_tail_.end(), board[i]) != snake_tail_.end())
+				std::cout << RED_ << std::setw(3) << "ST" << RESET_ << " ";
+			else if (std::find(ladder_base_.begin(), ladder_base_.end(), board[i]) != ladder_base_.end())
+				std::cout << GREEN_ << std::setw(3) << "LS" << RESET_ << " ";
+			else if (std::find(ladder_end_.begin(), ladder_end_.end(), board[i]) != ladder_end_.end())
+				std::cout << GREEN_ << std::setw(3) << "LE" << RESET_ << " ";
 			else
-			{
-				std::cout << std::setw(4) << Board[i] << " ";
-			}
+				std::cout << std::setw(4) << board[i] << " ";
 		}
 
-		if ((i + 1) % 10 == 0) {
+		if ((i + 1) % 10 == 0)
 			std::cout << "\n\n";
+	}
+}
+bool GameDetails::check_for_cheats(char is_cheat, std::vector<std::string>& player_names,
+	std::vector<int>& player_positions, std::vector<int>& player_turns, int current_player)
+{
+	switch (tolower(is_cheat))
+	{
+	case 'g':
+		// I mean its in the name
+		std::cout << "\nGOD MODE ACTIVATED!\n";
+		std::cout << player_names[current_player] << " has reached position 100!\n";
+		std::cout << colors_[current_player] << std::setw(4) << "P" << (current_player + 1) << RESET_ << " ";
+		std::cout << player_names[current_player] << " has won the game in " << player_turns[current_player] << " turns!\n\n";
+		player_positions[current_player] = 100;
+		print_board(board, (int)player_names.size(), player_positions);
+		std::cout << "Congratulations " << player_names[current_player] << "!\n";
+		std::cin.ignore();
+		exit(0);
+
+	case 'r':
+		// Sets every player's position to 0 except the current player
+		std::cout << "\nRESETTING ALL PLAYERS TO START POSITION!\n";
+		for (int i = 0; i < player_positions.size(); i++)
+		{
+			if (i != current_player)
+			{
+				player_positions[i] = 0;
+				std::cout << player_names[i] << " has been reset to position 0.\n";
+			}
 		}
+		print_board(board, (int)player_names.size(), player_positions);
+		return true;
+		break;
+
+	case 's':
+		// Skips the current player's turn
+		std::cout << "\nSKIPPING " << player_names[current_player] << "'s TURN!\n";
+		return true;
+		break;
+
+	default:
+		return false;
+		break;
 	}
 }
 
-bool GameDetails::ProcessPlayerTurn(int No_Of_Players, std::vector<int>& Player_Positions, std::vector<int>& Player_Turns, const std::vector<std::string>& PlayersNames)
+bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_positions,
+	std::vector<int>& player_turns, std::vector<std::string>& player_names)
 {
-	char PlayerInput;
-	for (int i = 0; i < No_Of_Players; i++)
+	char player_input;
+	for (int i = 0; i < num_players; i++)
 	{
-		std::cout << PlayersNames[i] << "'s turn" << '\n';
+		std::cout << player_names[i] << "'s turn\n";
 		std::cout << "Enter l or L to roll the dice ";
-		std::cin >> PlayerInput;
+		std::cin >> player_input;
 
-		if (tolower(PlayerInput) == 'g')
+		if (check_for_cheats(player_input, player_names, player_positions, player_turns, i) == true)
 		{
-			std::cout << '\n';
-			std::cout << "GOD MODE ACTIVATED!" << '\n';
-			std::cout << PlayersNames[i] << " has reached position 100!" << '\n';
-			std::cout << Colors[i] << std::setw(4) << "P" << (i + 1) << RESET << " ";;
-			std::cout << PlayersNames[i] << " has won the game in " << Player_Turns[i] << " turns!" << '\n';
-			std::cout << '\n';
-			Player_Positions[i] = 100; // Set player position to 100
-			PrintBoard(Board, No_Of_Players, Player_Positions);
-			std::cout << "Congratulations " << PlayersNames[i] << "!" << '\n';
-			return true;
+			std::cout << "Enter l or L to roll the dice\n";
+			std::cin >> player_input;
 		}
 
-		while (tolower(PlayerInput) != 'l')
+		while (tolower(player_input) != 'l')
 		{
-			std::cout << "Please input l or L to roll the dice" << '\n';
-			std::cin >> PlayerInput;
+			std::cout << "Please input l or L to roll the dice\n";
+			std::cin >> player_input;
 		}
+		std::cout << "Rolling Dice!" << std::endl;
+		std::this_thread::sleep_for(std::chrono::seconds(3));
 
 		int dice = rand() % 6 + 1;
-		std::cout << "You rolled :" << dice << '\n';
+		std::cout << "You rolled : " << dice << '\n';
 
-		Player_Positions[i] += dice;
-		Player_Turns[i] += 1;
+		player_positions[i] += dice;
+		player_turns[i] += 1;
 
-		if (Player_Positions[i] > 100)
+		if (player_positions[i] > 100)
 		{
-			std::cout << "Position out of the board, resetting your position to previous location" << '\n';
-			Player_Positions[i] -= dice;
-			Player_Turns[i] -= 1;
+			std::cout << "Position out of the board, resetting to previous location\n";
+			player_positions[i] -= dice;
+			player_turns[i] -= 1;
 		}
 
-		std::cout << PlayersNames[i] << " is now at position " << Player_Positions[i] << '\n';
-		std::cout << '\n';
+		std::cout << player_names[i] << " is now at position " << player_positions[i] << "\n\n";
 
-		for (int j = 0; j < SnakeHead.size(); j++) {
-			if (Player_Positions[i] == SnakeHead[j]) {
-				Player_Positions[i] = SnakeTail[j];
-				std::cout << PlayersNames[i] << " encountered a snake! Moved down to " << Player_Positions[i] << '\n';
+		for (int j = 0; j < snake_head_.size(); j++) {
+			if (player_positions[i] == snake_head_[j]) {
+				player_positions[i] = snake_tail_[j];
+				std::cout << player_names[i] << " encountered a snake! Moved down to " << player_positions[i] << '\n';
 			}
 		}
 
-		for (int j = 0; j < LadderBase.size(); j++) {
-			if (Player_Positions[i] == LadderBase[j]) {
-				Player_Positions[i] = LadderEnd[j];
-				std::cout << PlayersNames[i] << " climbed a ladder! Moved up to " << Player_Positions[i] << '\n';
+		for (int j = 0; j < ladder_base_.size(); j++) {
+			if (player_positions[i] == ladder_base_[j]) {
+				player_positions[i] = ladder_end_[j];
+				std::cout << player_names[i] << " climbed a ladder! Moved up to " << player_positions[i] << '\n';
 			}
 		}
 
-		if (Player_Positions[i] == 100) {
-			std::cout << Colors[i] << std::setw(4) << "P" << (i + 1) << RESET << " ";;
+		if (player_positions[i] == 100) {
+			std::cout << colors_[i] << std::setw(4) << "P" << (i + 1) << RESET_ << " ";
 			std::cout << '\n';
-			PrintBoard(Board, No_Of_Players, Player_Positions);
-			std::cout << PlayersNames[i] << " has won the game in " << Player_Turns[i] << " turns!" << '\n';
-			std::cout << "Congratulations " << PlayersNames[i] << "!" << '\n';
+			print_board(board, num_players, player_positions);
+			std::cout << player_names[i] << " has won the game in " << player_turns[i] << " turns!\n";
+			std::cout << "Congratulations " << player_names[i] << "!\n";
+			std::cin.ignore();
 			return true;
 		}
 	}
-	return false; // Game continues
+	return false;
 }
 
 int main()
 {
-	GameDetails Game;
+	GameDetails game;
 
-	int No_Of_Players = 0;
-	std::vector<std::string> PlayersNames;
+	int num_players = 0;
+	std::vector<std::string> player_names;
 
 	for (int i = 0; i < 100; i++)
 	{
-		Board[i] = i + 1; // Initializing the board with numbers from 1 to 100
+		board[i] = i + 1;
 	}
 
-
-	std::cout << "Welcome to the Snake and Ladder Game!" << '\n';
-	std::cout << "Press 'Enter' to start the game " << '\n';
+	std::cout << "Welcome to the Snake and Ladder Game!\n";
+	std::cout << "Press 'Enter' to start the game\n";
 	std::cin.ignore();
 
 	std::cout << "\nGame started!\n";
 
-	std::cout << "Enter the number of players (1-4)" << '\n';
-	std::cin >> No_Of_Players;
+	std::cout << "Enter the number of players (1 - 4)\n";
 
-	while (No_Of_Players > 4 || No_Of_Players < 1)
-	{
-		std::cout << "The number of players is invalid. Please try again!" << '\n';
-		std::cin >> No_Of_Players;
-	}
+	//Program continues when the number of players is within range
+	game.is_number_of_players_valid(&num_players);
 
-	//Resizing vector to store the names of the players
-	PlayersNames.resize(No_Of_Players);
+	player_names.resize(num_players);
 
+	std::vector<int> player_positions(num_players, 0);
+	std::vector<int> player_turns(num_players, 0);
 
-	//Two vectors to store each players stats
-	std::vector<int> Player_Positions(No_Of_Players, 0);
-	std::vector<int> Player_Turns(No_Of_Players, 0);
+	std::cout << "Enter the names of the players\n\n";
 
-	std::cout << "Enter the names of the players" << '\n';
-	std::cout << '\n';
-
-	for (int i = 0; i < No_Of_Players; i++)
+	for (int i = 0; i < num_players; i++)
 	{
 		std::cout << "Enter the name of Player " << i + 1 << " ";
-		std::getline(std::cin >> std::ws, PlayersNames[i]);
+		std::getline(std::cin >> std::ws, player_names[i]);
 		std::cout << '\n';
 	}
 
-	Game.PrintPlayers(PlayersNames);
+	game.print_players(player_names);
 
-	bool GameOver = false;
+	bool game_over = false;
 	srand(static_cast<unsigned int>(time(0)));
 
-
-	//Game loop
-	while (!GameOver)
+	while (!game_over)
 	{
-		Game.PrintBoard(Board, No_Of_Players, Player_Positions);
-		GameOver = Game.ProcessPlayerTurn(No_Of_Players, Player_Positions, Player_Turns, PlayersNames);
-
+		game.print_board(board, num_players, player_positions);
+		game_over = game.process_player_turn(num_players, player_positions, player_turns, player_names);
 	}
 
 	return 0;
