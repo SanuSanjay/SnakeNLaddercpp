@@ -9,6 +9,7 @@
 #include<limits>
 
 // Need access to the board globally
+
 int board[100];
 
 class GameDetails
@@ -37,6 +38,7 @@ private:
 
 public:
 	void print_players(const std::vector<std::string>& player_names);
+
 	void print_board(int board[], int num_players, std::vector<int>& player_positions);
 
 	bool process_player_turn(int num_players, std::vector<int>& player_positions,
@@ -45,9 +47,42 @@ public:
 	bool check_for_cheats(char is_cheat, std::vector<std::string>& player_names,
 		std::vector<int>& player_positions, std::vector<int>& player_turns, int current_player);
 
+	std::string to_lower_string(std::string& temp);
+
 	void is_number_of_players_valid(int* num_players);
+
+	bool play_again();
 };
 
+std::string GameDetails::to_lower_string(std::string& temp)
+{
+	for (char& ch : temp) {
+		ch = std::tolower(static_cast<unsigned char>(ch));
+	}
+	return temp;
+}
+
+
+bool GameDetails::play_again()
+{
+	std::string option;
+	std::cout << "Enter 'restart' to play again or 'exit' to quit: ";
+	std::getline(std::cin >> std::ws, option);
+
+	while (to_lower_string(option) != "exit" && to_lower_string(option) != "restart") {
+		std::cout << "Invalid option! Please re-enter: ";
+		std::getline(std::cin >> std::ws, option);
+	}
+
+	if (to_lower_string(option) == "exit") {
+		std::cout << "Game Over!" << '\n';
+		std::this_thread::sleep_for(std::chrono::seconds(2));
+		return false; // end game
+	}
+
+	std::cout << "\nGame restarted!\n\n";
+	return true; // replay
+}
 
 void GameDetails::is_number_of_players_valid(int* num_players)
 {
@@ -127,12 +162,12 @@ bool GameDetails::check_for_cheats(char is_cheat, std::vector<std::string>& play
 		std::cout << "\nGOD MODE ACTIVATED!\n";
 		std::cout << player_names[current_player] << " has reached position 100!\n";
 		std::cout << colors_[current_player] << std::setw(4) << "P" << (current_player + 1) << RESET_ << " ";
-		std::cout << player_names[current_player] << " has won the game in " << player_turns[current_player] << " turns!\n\n";
+		std::cout << colors_[current_player] << player_names[current_player] << " has won the game in " << player_turns[current_player] << " turns!" << RESET_ << "\n\n";
 		player_positions[current_player] = 100;
 		print_board(board, (int)player_names.size(), player_positions);
 		std::cout << "Congratulations " << player_names[current_player] << "!\n";
-		std::cin.ignore();
-		exit(0);
+		return false; // end game
+		break;
 
 	case 'r':
 		// Sets every player's position to 0 except the current player
@@ -149,12 +184,6 @@ bool GameDetails::check_for_cheats(char is_cheat, std::vector<std::string>& play
 		return true;
 		break;
 
-	case 's':
-		// Skips the current player's turn
-		std::cout << "\nSKIPPING " << player_names[current_player] << "'s TURN!\n";
-		return true;
-		break;
-
 	default:
 		return false;
 		break;
@@ -167,15 +196,23 @@ bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_
 	char player_input;
 	for (int i = 0; i < num_players; i++)
 	{
-		std::cout << player_names[i] << "'s turn\n";
+		std::cout << colors_[i] << "Player " << (i + 1) << " " << player_names[i] << "'s turn." << RESET_ << '\n';
 		std::cout << "Enter l or L to roll the dice ";
 		std::cin >> player_input;
 
 		if (check_for_cheats(player_input, player_names, player_positions, player_turns, i) == true)
 		{
+			std::cout << colors_[i] << player_names[i] << "'s turn again" << RESET_ << '\n';
 			std::cout << "Enter l or L to roll the dice\n";
 			std::cin >> player_input;
 		}
+
+		if (player_positions[i] == 100)
+		{
+			// if the player has already won,end current game loop
+			return true;
+		}
+
 
 		while (tolower(player_input) != 'l')
 		{
@@ -183,7 +220,7 @@ bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_
 			std::cin >> player_input;
 		}
 		std::cout << "Rolling Dice!" << std::endl;
-		std::this_thread::sleep_for(std::chrono::seconds(3));
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 
 		int dice = rand() % 6 + 1;
 		std::cout << "You rolled : " << dice << '\n';
@@ -204,6 +241,7 @@ bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_
 			if (player_positions[i] == snake_head_[j]) {
 				player_positions[i] = snake_tail_[j];
 				std::cout << player_names[i] << " encountered a snake! Moved down to " << player_positions[i] << '\n';
+				std::cout << '\n';
 			}
 		}
 
@@ -211,6 +249,7 @@ bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_
 			if (player_positions[i] == ladder_base_[j]) {
 				player_positions[i] = ladder_end_[j];
 				std::cout << player_names[i] << " climbed a ladder! Moved up to " << player_positions[i] << '\n';
+				std::cout << '\n';
 			}
 		}
 
@@ -220,60 +259,68 @@ bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_
 			print_board(board, num_players, player_positions);
 			std::cout << player_names[i] << " has won the game in " << player_turns[i] << " turns!\n";
 			std::cout << "Congratulations " << player_names[i] << "!\n";
-			std::cin.ignore();
 			return true;
 		}
 	}
 	return false;
 }
 
+void game_loop()
+{
+	while (true)
+	{
+		GameDetails game;
+
+		int num_players = 0;
+		std::vector<std::string> player_names;
+
+		for (int i = 0; i < 100; i++)
+		{
+			board[i] = i + 1;
+		}
+
+		std::cout << "Welcome to the Snake and Ladder Game!\n";
+		std::cout << "Press 'Enter' to start the game\n";
+		std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+		std::cout << "\nGame started!\n";
+		std::cout << "Enter the number of players (1 - 4)\n";
+
+		game.is_number_of_players_valid(&num_players);
+
+		player_names.resize(num_players);
+		std::vector<int> player_positions(num_players, 0);
+		std::vector<int> player_turns(num_players, 0);
+
+		std::cout << "Enter the names of the players\n\n";
+		for (int i = 0; i < num_players; i++)
+		{
+			std::cout << "Enter the name of Player " << i + 1 << " ";
+			std::getline(std::cin >> std::ws, player_names[i]);
+			std::cout << '\n';
+		}
+
+		game.print_players(player_names);
+
+		bool game_over = false;
+		srand(static_cast<unsigned int>(time(0)));
+
+		while (!game_over)
+		{
+			game.print_board(board, num_players, player_positions);
+			game_over = game.process_player_turn(num_players, player_positions, player_turns, player_names);
+		}
+
+		if (!game.play_again())
+		{
+			break;
+		}
+	}
+}
+
+
 int main()
 {
-	GameDetails game;
-
-	int num_players = 0;
-	std::vector<std::string> player_names;
-
-	for (int i = 0; i < 100; i++)
-	{
-		board[i] = i + 1;
-	}
-
-	std::cout << "Welcome to the Snake and Ladder Game!\n";
-	std::cout << "Press 'Enter' to start the game\n";
-	std::cin.ignore();
-
-	std::cout << "\nGame started!\n";
-
-	std::cout << "Enter the number of players (1 - 4)\n";
-
-	//Program continues when the number of players is within range
-	game.is_number_of_players_valid(&num_players);
-
-	player_names.resize(num_players);
-
-	std::vector<int> player_positions(num_players, 0);
-	std::vector<int> player_turns(num_players, 0);
-
-	std::cout << "Enter the names of the players\n\n";
-
-	for (int i = 0; i < num_players; i++)
-	{
-		std::cout << "Enter the name of Player " << i + 1 << " ";
-		std::getline(std::cin >> std::ws, player_names[i]);
-		std::cout << '\n';
-	}
-
-	game.print_players(player_names);
-
-	bool game_over = false;
-	srand(static_cast<unsigned int>(time(0)));
-
-	while (!game_over)
-	{
-		game.print_board(board, num_players, player_positions);
-		game_over = game.process_player_turn(num_players, player_positions, player_turns, player_names);
-	}
-
+	game_loop();
 	return 0;
 }
