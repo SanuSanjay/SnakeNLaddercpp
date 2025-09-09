@@ -51,6 +51,8 @@ public:
 
 	void is_number_of_players_valid(int* num_players);
 
+	int dice_roll(std::vector<int>& player_positions, std::vector<int>& player_turns, std::vector<std::string>& player_names, int current_player);
+
 	bool play_again();
 };
 
@@ -152,6 +154,7 @@ void GameDetails::print_board(int board[], int num_players, std::vector<int>& pl
 			std::cout << "\n\n";
 	}
 }
+
 bool GameDetails::check_for_cheats(char is_cheat, std::vector<std::string>& player_names,
 	std::vector<int>& player_positions, std::vector<int>& player_turns, int current_player)
 {
@@ -190,19 +193,52 @@ bool GameDetails::check_for_cheats(char is_cheat, std::vector<std::string>& play
 	}
 }
 
+int GameDetails::dice_roll(std::vector<int>& player_positions, std::vector<int>& player_turns, std::vector<std::string>& player_names, int current_player)
+{
+	std::cout << colors_[current_player] << "Rolling Dice!" << std::endl;
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+
+	int dice = rand() % 6 + 1;
+	std::cout << player_names[current_player] << " rolled : " << dice << '\n';
+
+	if (dice == 6)
+	{
+		char player_input = '\0';
+		std::cout << "You rolled a 6! You get to roll again " <<'\n';
+		player_positions[current_player] += dice;
+		player_turns[current_player] += 1;
+
+		while (tolower(player_input) != 'l')
+		{
+			std::cout << "Please input l or L to roll the dice\n";
+			std::cin >> player_input;
+		}
+
+		std::cout << "Rolling Dice!" << std::endl;
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		dice = rand() % 6 + 1;
+		std::cout << "You rolled : " << dice << '\n';
+	}
+
+	player_positions[current_player] += dice;
+	player_turns[current_player] += 1;
+	return dice;
+}
+
+
 bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_positions,
 	std::vector<int>& player_turns, std::vector<std::string>& player_names)
 {
 	char player_input;
 	for (int i = 0; i < num_players; i++)
 	{
-		std::cout << colors_[i] << "Player " << (i + 1) << " " << player_names[i] << "'s turn." << RESET_ << '\n';
+		std::cout << colors_[i] << "Player " << (i + 1) << " " << player_names[i] << "'s turn." << '\n';
 		std::cout << "Enter l or L to roll the dice ";
 		std::cin >> player_input;
 
 		if (check_for_cheats(player_input, player_names, player_positions, player_turns, i) == true)
 		{
-			std::cout << colors_[i] << player_names[i] << "'s turn again" << RESET_ << '\n';
+			std::cout << colors_[i] << player_names[i] << "'s turn again" << '\n';
 			std::cout << "Enter l or L to roll the dice\n";
 			std::cin >> player_input;
 		}
@@ -210,6 +246,7 @@ bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_
 		if (player_positions[i] == 100)
 		{
 			// if the player has already won,end current game loop
+			std::cout << RESET_;
 			return true;
 		}
 
@@ -219,28 +256,22 @@ bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_
 			std::cout << "Please input l or L to roll the dice\n";
 			std::cin >> player_input;
 		}
-		std::cout << "Rolling Dice!" << std::endl;
-		std::this_thread::sleep_for(std::chrono::seconds(1));
 
-		int dice = rand() % 6 + 1;
-		std::cout << "You rolled : " << dice << '\n';
-
-		player_positions[i] += dice;
-		player_turns[i] += 1;
+		int dice = dice_roll(player_positions, player_turns, player_names, i);
 
 		if (player_positions[i] > 100)
 		{
-			std::cout << "Position out of the board, resetting to previous location\n";
+			std::cout << colors_[i] << "Position out of the board, resetting to previous location\n" <<RESET_;
 			player_positions[i] -= dice;
 			player_turns[i] -= 1;
 		}
 
-		std::cout << player_names[i] << " is now at position " << player_positions[i] << "\n\n";
+		std::cout << colors_[i] << player_names[i] << " is now at position " << player_positions[i] << RESET_ << "\n\n";
 
 		for (int j = 0; j < snake_head_.size(); j++) {
 			if (player_positions[i] == snake_head_[j]) {
 				player_positions[i] = snake_tail_[j];
-				std::cout << player_names[i] << " encountered a snake! Moved down to " << player_positions[i] << '\n';
+				std::cout << colors_[i] << player_names[i] << " encountered a snake! Moved down to " << player_positions[i] << RESET_ << '\n';
 				std::cout << '\n';
 			}
 		}
@@ -248,7 +279,7 @@ bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_
 		for (int j = 0; j < ladder_base_.size(); j++) {
 			if (player_positions[i] == ladder_base_[j]) {
 				player_positions[i] = ladder_end_[j];
-				std::cout << player_names[i] << " climbed a ladder! Moved up to " << player_positions[i] << '\n';
+				std::cout << colors_[i] << player_names[i] << " climbed a ladder! Moved up to " << player_positions[i] << RESET_ << '\n';
 				std::cout << '\n';
 			}
 		}
@@ -257,8 +288,8 @@ bool GameDetails::process_player_turn(int num_players, std::vector<int>& player_
 			std::cout << colors_[i] << std::setw(4) << "P" << (i + 1) << RESET_ << " ";
 			std::cout << '\n';
 			print_board(board, num_players, player_positions);
-			std::cout << player_names[i] << " has won the game in " << player_turns[i] << " turns!\n";
-			std::cout << "Congratulations " << player_names[i] << "!\n";
+			std::cout << colors_[i] << player_names[i] << " has won the game in " << player_turns[i] << " turns!\n";
+			std::cout << "Congratulations " << player_names[i] << RESET_ << "!\n";
 			return true;
 		}
 	}
